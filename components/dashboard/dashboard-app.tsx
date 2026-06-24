@@ -39,6 +39,7 @@ export function DashboardApp() {
     [hasSupabaseEnv],
   );
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const selectedConversationIdRef = useRef<string | null>(null);
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -52,6 +53,7 @@ export function DashboardApp() {
     {},
   );
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  selectedConversationIdRef.current = selectedConversationId;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -109,12 +111,6 @@ export function DashboardApp() {
       }
 
       setWorkspaceLoading(true);
-      setHasClinicAssignment(true);
-      setMembership(null);
-      setConversations([]);
-      setPreviews({});
-      setSelectedConversationId(null);
-      setMessages([]);
 
       const { data: clinicUserData, error: clinicUserError } = await supabase
         .from("clinic_users")
@@ -128,6 +124,11 @@ export function DashboardApp() {
 
       if (!clinicUserData) {
         setHasClinicAssignment(false);
+        setMembership(null);
+        setConversations([]);
+        setPreviews({});
+        setSelectedConversationId(null);
+        setMessages([]);
         setWorkspaceLoading(false);
         return;
       }
@@ -168,12 +169,14 @@ export function DashboardApp() {
         });
         setPreviews(previewMap);
 
-        const initialConversationId = loadedConversations[0]?.id ?? null;
-        setSelectedConversationId(initialConversationId);
+        if (!selectedConversationIdRef.current) {
+          const initialConversationId = loadedConversations[0]?.id ?? null;
+          setSelectedConversationId(initialConversationId);
 
-        if (initialConversationId) {
-          await loadMessages(initialConversationId);
-          setMobileView("list");
+          if (initialConversationId) {
+            await loadMessages(initialConversationId);
+            setMobileView("list");
+          }
         }
       }
 
@@ -482,7 +485,7 @@ export function DashboardApp() {
     );
   }
 
-  if (workspaceLoading) {
+  if (workspaceLoading && !membership) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-7xl items-center px-4 py-8 sm:px-6 lg:px-8">
         <LoadingSkeleton />
