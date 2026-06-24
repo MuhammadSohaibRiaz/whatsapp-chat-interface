@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
-import type { Session } from "@supabase/supabase-js";
+import type {
+  AuthChangeEvent,
+  RealtimePostgresChangesPayload,
+  Session,
+} from "@supabase/supabase-js";
 import { Building2, LogOut, RefreshCw } from "lucide-react";
 import { LoginCard } from "@/components/auth/login-card";
 import { ChatView } from "@/components/dashboard/chat-view";
@@ -27,7 +31,13 @@ function sortByRecent(a: Conversation, b: Conversation) {
 }
 
 export function DashboardApp() {
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const hasSupabaseEnv = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+  const supabase = useMemo(
+    () => (hasSupabaseEnv ? getSupabaseBrowserClient() : null),
+    [hasSupabaseEnv],
+  );
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [session, setSession] = useState<Session | null>(null);
@@ -68,6 +78,10 @@ export function DashboardApp() {
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
+      if (!supabase) {
+        return;
+      }
+
       setLoadingMessages(true);
 
       const { data, error } = await supabase
@@ -90,6 +104,10 @@ export function DashboardApp() {
 
   const loadWorkspace = useCallback(
     async (currentSession: Session) => {
+      if (!supabase) {
+        return;
+      }
+
       setWorkspaceLoading(true);
       setHasClinicAssignment(true);
       setMembership(null);
@@ -168,6 +186,11 @@ export function DashboardApp() {
     let ignore = false;
 
     async function init() {
+      if (!supabase) {
+        setAuthLoading(false);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
 
       if (!ignore) {
@@ -182,9 +205,14 @@ export function DashboardApp() {
 
     init();
 
+    if (!supabase) {
+      return;
+    }
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(
+      async (_event: AuthChangeEvent, newSession: Session | null) => {
       setSession(newSession);
 
       if (newSession) {
@@ -197,7 +225,8 @@ export function DashboardApp() {
         setMessages([]);
         setHasClinicAssignment(true);
       }
-    });
+      },
+    );
 
     return () => {
       ignore = true;
@@ -206,7 +235,7 @@ export function DashboardApp() {
   }, [loadWorkspace, supabase]);
 
   useEffect(() => {
-    if (!membership?.clinic_id) {
+    if (!membership?.clinic_id || !supabase) {
       return;
     }
 
@@ -220,7 +249,7 @@ export function DashboardApp() {
           table: "conversations",
           filter: `clinic_id=eq.${membership.clinic_id}`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Conversation>) => {
           const nextConversation = payload.new as Conversation;
           const oldConversation = payload.old as Conversation;
 
@@ -262,7 +291,7 @@ export function DashboardApp() {
           table: "messages",
           filter: `clinic_id=eq.${membership.clinic_id}`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Message>) => {
           const newMessage = payload.new as Message;
 
           setPreviews((current) => ({
@@ -324,8 +353,6 @@ export function DashboardApp() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const nowTimestamp = useMemo(() => Date.now(), [refreshTick]);
-
   const isNeedsAttention = useCallback(
     (conversation: Conversation) => {
       if (conversation.status === "human") {
@@ -337,13 +364,17 @@ export function DashboardApp() {
         return false;
       }
 
-      const elapsed = nowTimestamp - new Date(preview.created_at).getTime();
+      const elapsed = Date.now() - new Date(preview.created_at).getTime() + refreshTick * 0;
       return elapsed > FIVE_MINUTES;
     },
-    [nowTimestamp, previews],
+    [previews, refreshTick],
   );
 
   async function switchConversationStatus(conversationId: string, status: "bot" | "human") {
+    if (!supabase) {
+      return;
+    }
+
     const { error } = await supabase
       .from("conversations")
       .update({ status })
@@ -355,7 +386,7 @@ export function DashboardApp() {
   }
 
   async function handleSendMessage(body: string) {
-    if (!selectedConversation || !membership) {
+    if (!supabase || !selectedConversation || !membership) {
       return;
     }
 
@@ -427,11 +458,31 @@ export function DashboardApp() {
   }
 
   async function handleSignOut() {
+    if (!supabase) {
+      return;
+    }
+
     await supabase.auth.signOut();
   }
 
   const clinicName = membership?.clinics?.name ?? "Clinic";
   const clinicNumber = membership?.clinics?.display_number ?? "";
+
+  if (!hasSupabaseEnv) {
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-7xl items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+        <div className="max-w-lg rounded-3xl border border-[color:var(--line)] bg-white/90 p-8 text-center shadow-[0_35px_90px_-45px_rgba(14,35,64,0.55)] backdrop-blur">
+          <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--ink)]">
+            Configure environment variables
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-[color:var(--ink-soft)]">
+            Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local,
+            then reload the app.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (authLoading) {
     return (
