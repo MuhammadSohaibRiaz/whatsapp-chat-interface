@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f2ec;
+  --ink: #102238;
+  --ink-soft: #4d5f73;
+
+  --surface: #fdfcf9;
+  --surface-muted: #eef2f5;
+  --line: #d7dee5;
+  --line-strong: #bcc8d4;
+
+  --accent: #3a73b9;
+  --accent-soft: #d9e8fb;
+  --teal-soft: #d8ece9;
+
+  --status-bot-bg: #dff0e7;
+  --status-bot-text: #255d45;
+
+  --status-attention-bg: #faeddc;
+  --status-attention-text: #875720;
+  --status-attention-line: #eccfa8;
+
+  --status-human-bg: #dfeaf7;
+  --status-human-text: #2c4f7d;
+  --status-human-line: #b6cae5;
+
+  --bot-bubble: #e7f2ea;
+  --staff-bubble: #e4ecf9;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 5% -10%, #cfe0f4 0%, rgba(207, 224, 244, 0) 55%),
+    radial-gradient(900px 500px at 95% -15%, #e5f0ee 0%, rgba(229, 240, 238, 0) 58%),
+    linear-gradient(180deg, #f8f6f1 0%, #efede7 100%);
+  font-family: var(--font-inter), "Segoe UI", sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cad6e2 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #cad6e2;
+  border-radius: 999px;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 10%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0) 90%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 1.8s infinite;
+}
+
+.new-message {
+  animation: pop-in 450ms ease-out;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
