@@ -183,53 +183,35 @@ export function DashboardApp() {
   );
 
   useEffect(() => {
-    let ignore = false;
-
-    async function init() {
-      if (!supabase) {
-        setAuthLoading(false);
-        return;
-      }
-
-      const { data } = await supabase.auth.getSession();
-
-      if (!ignore) {
-        setSession(data.session ?? null);
-        setAuthLoading(false);
-      }
-
-      if (data.session && !ignore) {
-        await loadWorkspace(data.session);
-      }
-    }
-
-    init();
-
     if (!supabase) {
+      setAuthLoading(false);
       return;
     }
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, newSession: Session | null) => {
-      setSession(newSession);
+      async (event: AuthChangeEvent, newSession: Session | null) => {
+        setSession(newSession);
+        setAuthLoading(false);
 
-      if (newSession) {
-        await loadWorkspace(newSession);
-      } else {
-        setMembership(null);
-        setConversations([]);
-        setPreviews({});
-        setSelectedConversationId(null);
-        setMessages([]);
-        setHasClinicAssignment(true);
-      }
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+          if (newSession) {
+            await loadWorkspace(newSession);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setMembership(null);
+          setConversations([]);
+          setPreviews({});
+          setSelectedConversationId(null);
+          setMessages([]);
+          setHasClinicAssignment(true);
+        }
+        // TOKEN_REFRESHED / USER_UPDATED: session state updated above, no reload needed
       },
     );
 
     return () => {
-      ignore = true;
       subscription.unsubscribe();
     };
   }, [loadWorkspace, supabase]);
